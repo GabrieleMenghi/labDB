@@ -20,6 +20,7 @@ package lab.db.tables;
      public static final String TABLE_NAME = "students";
 
      private final Connection connection; 
+     
 
      public StudentsTable(final Connection connection) {
          this.connection = Objects.requireNonNull(connection);
@@ -51,7 +52,17 @@ package lab.db.tables;
 
      @Override
      public Optional<Student> findByPrimaryKey(final Integer id) {
-         throw new UnsupportedOperationException("TODO");
+    	 final String query = "SELECT * FROM " + TABLE_NAME +  " WHERE id = ?";
+    	 try(final PreparedStatement statement = this.connection.prepareStatement(query)){
+    		 statement.setInt(1, id);
+    		 /*final ResultSet rs = statement.executeQuery(
+					"SELECT * FROM" + TABLE_NAME + "WHERE id = " + id   SQL injection
+				);*/
+    		 final ResultSet rs = statement.executeQuery();
+    		 return readStudentsFromResultSet(rs).stream().findFirst();
+    	 } catch (final SQLException e) {
+    		 return Optional.empty();
+    	 }
      }
 
      /**
@@ -71,7 +82,13 @@ package lab.db.tables;
          // Helpful resources:
          // https://docs.oracle.com/javase/7/docs/api/java/sql/ResultSet.html
          // https://docs.oracle.com/javase/tutorial/jdbc/basics/retrieving.html
-         throw new UnsupportedOperationException("TODO");
+         final List<Student> studentsList = new ArrayList<>();
+         try {
+			while(resultSet.next()) {
+				 studentsList.add(new Student(resultSet.getInt(1), resultSet.getString(2), resultSet.getString(3)));
+			 }
+		} catch (SQLException e) {}
+         return studentsList;
      }
 
      @Override
@@ -90,7 +107,28 @@ package lab.db.tables;
 
      @Override
      public boolean save(final Student student) {
-         throw new UnsupportedOperationException("TODO");
+    	 final String q = "SELECT * FROM " + TABLE_NAME +
+    			 " WHERE id = ?";
+    	 try(final PreparedStatement st = this.connection.prepareStatement(q)){
+    		 st.setInt(1, student.getId());
+    		 final ResultSet res = st.executeQuery();
+    		 if(res.getRow() == 0) {
+    			 final String query = "INSERT into " + TABLE_NAME + " (id, firstName, lastName, bithday)" 
+	 						+ " VALUES (?, ?, ?, ?)";
+    			 try(final PreparedStatement statement = this.connection.prepareStatement(query)){
+    				 statement.setInt(1, student.getId());
+    				 statement.setString(2, student.getFirstName());
+    				 statement.setString(3, student.getLastName());
+    				 statement.setDate(4, Utils.dateToSqlDate(student.getBirthday().get()));
+    				 final ResultSet rs = statement.executeQuery();
+    				 return true;
+    			 } catch (final SQLException e) {
+    				 return false;
+    			 }
+    		 }
+    	 } catch (final SQLException e) {}
+    	 return false;
+    	 
      }
 
      @Override
