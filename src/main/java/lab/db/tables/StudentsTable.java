@@ -85,59 +85,110 @@ package lab.db.tables;
          final List<Student> studentsList = new ArrayList<>();
          try {
 			while(resultSet.next()) {
-				 studentsList.add(new Student(resultSet.getInt(1), resultSet.getString(2), resultSet.getString(3)));
+				 studentsList.add(new Student(resultSet.getInt(1), resultSet.getString(2), resultSet.getString(3), 
+						 Optional.of(Utils.sqlDateToDate(resultSet.getDate(4)))));
 			 }
-		} catch (SQLException e) {}
+         } catch (SQLException e) {}
          return studentsList;
+        
      }
 
      @Override
      public List<Student> findAll() {
-         throw new UnsupportedOperationException("TODO");
+    	 final List<Student> studentsList = new ArrayList<>();
+    	 try(final Statement statement = this.connection.createStatement()){
+    		 final ResultSet rs = statement.executeQuery("SELECT * FROM " + TABLE_NAME);
+    		 studentsList.addAll(0, readStudentsFromResultSet(rs));
+    	 } catch (final SQLException e) {}
+    	 return studentsList;
      }
 
      public List<Student> findByBirthday(final Date date) {
-         throw new UnsupportedOperationException("TODO");
+    	 final List<Student> studentsList = new ArrayList<>();
+    	 final String query = "SELECT * FROM " + TABLE_NAME
+    			 			+ " WHERE birthday = ?";
+    	 try(final PreparedStatement statement = this.connection.prepareStatement(query)){
+    		 statement.setDate(1, Utils.dateToSqlDate(date));
+    		 final ResultSet rs = statement.executeQuery();
+    		 studentsList.addAll(0, readStudentsFromResultSet(rs));
+    	 } catch (final SQLException e) {}
+    	 return studentsList;
      }
 
      @Override
      public boolean dropTable() {
-         throw new UnsupportedOperationException("TODO");
+    	 try (final Statement statement = this.connection.createStatement()) {
+             statement.executeUpdate(
+                 "DROP TABLE " + TABLE_NAME
+                 );
+             return true;
+         } catch (final SQLException e) {
+             return false;
+         }
      }
 
      @Override
      public boolean save(final Student student) {
-    	 final String q = "SELECT * FROM " + TABLE_NAME +
-    			 " WHERE id = ?";
-    	 try(final PreparedStatement st = this.connection.prepareStatement(q)){
-    		 st.setInt(1, student.getId());
-    		 final ResultSet res = st.executeQuery();
-    		 if(res.getRow() == 0) {
-    			 final String query = "INSERT into " + TABLE_NAME + " (id, firstName, lastName, bithday)" 
-	 						+ " VALUES (?, ?, ?, ?)";
-    			 try(final PreparedStatement statement = this.connection.prepareStatement(query)){
-    				 statement.setInt(1, student.getId());
-    				 statement.setString(2, student.getFirstName());
-    				 statement.setString(3, student.getLastName());
-    				 statement.setDate(4, Utils.dateToSqlDate(student.getBirthday().get()));
-    				 final ResultSet rs = statement.executeQuery();
-    				 return true;
-    			 } catch (final SQLException e) {
-    				 return false;
-    			 }
+    	 final String query = "INSERT into " + TABLE_NAME + " (id, firstName, lastName, birthday)" 
+    			 			+ " VALUES (?, ?, ?, ?)";
+    	 try(final PreparedStatement statement = this.connection.prepareStatement(query)){
+    		 statement.setInt(1, student.getId());
+    		 statement.setString(2, student.getFirstName());
+    		 statement.setString(3, student.getLastName());
+    		 if(student.getBirthday().isPresent()) {
+    			 statement.setDate(4, Utils.dateToSqlDate(student.getBirthday().get()));
+    		 } else {
+    			 statement.setDate(4, null);
     		 }
-    	 } catch (final SQLException e) {}
-    	 return false;
-    	 
+    		 final var rs = statement.executeUpdate();
+    		 if(rs != 0) {
+    			 return true;    					 
+    		 }
+    		 return false;
+    	 } catch (final SQLException e) {
+    		 return false;
+    	 }
      }
 
      @Override
      public boolean delete(final Integer id) {
-         throw new UnsupportedOperationException("TODO");
+    	 final String query = "DELETE FROM " + TABLE_NAME +
+                 " WHERE id = ?";
+    	 try (final PreparedStatement statement = this.connection.prepareStatement(query)) {
+    		 statement.setInt(1, id);
+             final var rs = statement.executeUpdate();
+             if(rs != 0) {
+    			 return true;    					 
+    		 }
+    		 return false;
+         } catch (final SQLException e) {
+             return false;
+         }
      }
 
      @Override
      public boolean update(final Student student) {
-         throw new UnsupportedOperationException("TODO");
+    	 final String query = "UPDATE " + TABLE_NAME 
+    			 			+ " SET firstName = ?,"
+    			 			+ " lastName = ?,"
+    			 			+ " birthday = ?"
+    			 			+ " WHERE id = ?";
+    	 try (final PreparedStatement statement = this.connection.prepareStatement(query)) {
+    		 statement.setString(1, student.getFirstName());
+    		 statement.setString(2, student.getLastName());
+    		 if(student.getBirthday().isPresent()) {
+    			 statement.setDate(3, Utils.dateToSqlDate(student.getBirthday().get()));
+    		 } else {
+    			 statement.setDate(3, null);
+    		 }
+    		 statement.setInt(4, student.getId());
+             final var rs = statement.executeUpdate();
+             if(rs != 0) {
+    			 return true;    					 
+    		 }
+    		 return false;
+         } catch (final SQLException e) {
+             return false;
+         }
      }
  }
